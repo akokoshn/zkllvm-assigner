@@ -86,7 +86,14 @@ namespace nil {
                     break;
                 case llvm::CmpInst::ICMP_SLT:
                 case llvm::CmpInst::ICMP_ULT:
-                    Mode = nil::blueprint::components::detail::comparison_mode::LESS_THAN;
+                    // Mode = nil::blueprint::components::detail::comparison_mode::LESS_THAN;
+                    {
+                    bool res = (var_value(assignment, x) < var_value(assignment, y));
+                    assignment.public_input(0, public_input_idx) = res;
+                    using var = crypto3::zk::snark::plonk_variable<typename BlueprintFieldType::value_type>;
+                    return var(0, public_input_idx++, false, var::column_type::public_input);
+                    break;
+                }
                     break;
                 default:
                     UNREACHABLE("Unsupported icmp predicate");

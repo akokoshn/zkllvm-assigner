@@ -29,6 +29,7 @@
 
 #include <unordered_map>
 #include <vector>
+#include <stack>
 
 #include <nil/blueprint/asserts.hpp>
 
@@ -143,6 +144,64 @@ namespace nil {
             ASSERT(mem.index == 0);
             base->memcpy(mem.base);
         }
+
+        using ptr_type = unsigned;
+
+        template<typename VarType>
+        struct cell {
+            VarType v;
+            size_t offset;
+            char head;
+        };
+
+        template<typename VarType>
+        struct sstack : public std::vector<cell<VarType>> {
+        public:
+            sstack(long stack_size) : heap_top(stack_size) {
+                this->push_back({VarType(), 0});
+                this->resize(heap_top);
+            }
+            void stack_push(unsigned offset) {
+                this->operator[](stack_top++) = cell<VarType> {VarType(), offset, 1};
+            }
+
+            void push_frame() {
+                frames.push(stack_top);
+            }
+
+            void pop_frame() {
+                stack_top = frames.top();
+                frames.pop();
+            }
+
+            ptr_type add_cells(const std::vector<unsigned> &layout) {
+                ptr_type res = stack_top;
+                unsigned acc = this->at(stack_top - 1).offset;
+                for (unsigned cell_size : layout) {
+                    acc += cell_size;
+                    stack_push(acc);
+                }
+                return res;
+            }
+
+            ptr_type malloc(size_t num_bytes) {
+                auto offset = this->back().offset;
+                ptr_type res = this->size();
+                for (size_t i = 0; i < num_bytes; ++i) {
+                    this->push_back(cell<VarType>{VarType(), offset++, 1});
+                }
+                return res;
+            }
+
+            void store(ptr_type ptr, VarType value) {
+                this->operator[](ptr).v = value;
+            }
+
+        private:
+            ptr_type stack_top = 1;
+            size_t heap_top;
+            std::stack<ptr_type> frames;
+        };
 
     }    // namespace blueprint
 }    // namespace nil

@@ -79,6 +79,10 @@ namespace nil {
                 } else {
                     spdlog::debug("\t\t{} -> {}", opcode_name, inst_name);
                 }
+                std::string str;
+                llvm::raw_string_ostream ss(str);
+                inst->print(ss);
+                spdlog::debug(str.c_str());
             }
 
         private:
