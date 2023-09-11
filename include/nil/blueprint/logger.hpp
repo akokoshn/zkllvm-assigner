@@ -26,6 +26,7 @@
 #ifndef CRYPTO3_ASSIGNER_NIL_BLUEPRINT_LOGGER_HPP
 #define CRYPTO3_ASSIGNER_NIL_BLUEPRINT_LOGGER_HPP
 
+#include <thread>
 #include <llvm/IR/Instructions.h>
 
 #include <spdlog/spdlog.h>
@@ -77,8 +78,12 @@ namespace nil {
                     current_block = inst->getParent();
                     spdlog::debug("\t{}: ", current_block->getNameOrAsOperand());
                 }
+
                 std::string str;
                 llvm::raw_string_ostream ss(str);
+                std::stringstream tid_stream;
+                tid_stream << std::this_thread::get_id() << " ";
+                ss << tid_stream.str();
                 inst->print(ss);
                 spdlog::debug("\t\t{}", str);
             }

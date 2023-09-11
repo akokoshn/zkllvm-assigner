@@ -28,6 +28,9 @@
 
 #include <variant>
 #include <stack>
+#include <mutex>
+#include <future>
+
 
 #include <nil/blueprint/blueprint/plonk/assignment.hpp>
 #include <nil/blueprint/blueprint/plonk/circuit.hpp>
@@ -96,6 +99,7 @@ namespace nil {
 
             circuit<ArithmetizationType> bp;
             assignment<ArithmetizationType> assignmnt;
+            std::mutex mutex;
 
         private:
 
@@ -395,9 +399,9 @@ namespace nil {
                 return ptr;
             }
 
-            const llvm::Instruction *handle_instruction(const llvm::Instruction *inst) {
+            const llvm::Instruction *handle_instruction(const llvm::Instruction *inst, stack_frame<var>* cur_frame = nullptr) {
                 log.log_instruction(inst);
-                stack_frame<var> &frame = call_stack.top();
+                stack_frame<var> &frame = (cur_frame == nullptr) ? call_stack.top() : *cur_frame;
                 auto &variables = frame.scalars;
                 std::uint32_t start_row = assignmnt.allocated_rows();
 
@@ -437,7 +441,6 @@ namespace nil {
 
                 switch (inst->getOpcode()) {
                     case llvm::Instruction::Add: {
-
                         if (inst->getOperand(0)->getType()->isIntegerTy()) {
                             handle_integer_addition_component<BlueprintFieldType, ArithmetizationParams>(
                                         inst, frame, bp, assignmnt, start_row);
@@ -480,7 +483,6 @@ namespace nil {
                         return inst->getNextNonDebugInstruction();
                     }
                     case llvm::Instruction::Mul: {
-
                         if (inst->getOperand(0)->getType()->isIntegerTy()) {
                             handle_integer_multiplication_component<BlueprintFieldType, ArithmetizationParams>(
                                 inst, frame, bp, assignmnt, start_row);
@@ -554,7 +556,6 @@ namespace nil {
                         }
                     }
                     case llvm::Instruction::SDiv: {
-
                         if (inst->getOperand(0)->getType()->isIntegerTy()) {
                             handle_integer_division_component<BlueprintFieldType, ArithmetizationParams>(
                                 inst, frame, bp, assignmnt, start_row);
@@ -586,22 +587,103 @@ namespace nil {
                         if (fun->empty()) {
                             UNREACHABLE("Function " + fun_name.str() + " has no implementation.");
                         }
-                        stack_frame<var> new_frame;
-                        auto &new_variables = new_frame.scalars;
-                        for (int i = 0; i < fun->arg_size(); ++i) {
-                            llvm::Argument *arg = fun->getArg(i);
-                            llvm::Type *arg_type = arg->getType();
-                            if (arg->getType()->isVectorTy() || arg->getType()->isCurveTy() ||
-                                (arg->getType()->isFieldTy() && field_arg_num<BlueprintFieldType>(arg_type) > 1))
-                                new_frame.vectors[arg] = frame.vectors[call_inst->getOperand(i)];
-                            else
-                                new_variables[arg] = variables[call_inst->getOperand(i)];
 
+                        if (fun_name.str().find("for_loop") != std::string::npos) {
+                            auto min_val = int(typename BlueprintFieldType::integral_type(var_value(assignmnt, variables[call_inst->getOperand(0)]).data));
+                            auto extend = int(typename BlueprintFieldType::integral_type(var_value(assignmnt, variables[call_inst->getOperand(1)]).data));
+                            int num_threads = 2;
+                            int iterations_per_thread = (extend - min_val) / num_threads;
+                            //std::cout << "num threads = " << num_threads << std::endl;
+                            //std::cout << "iterations per thread = " << iterations_per_thread << std::endl;
+                            std::vector <stack_frame<var>> new_frames;
+                            new_frames.resize(num_threads);
+                            std::vector <std::future<const llvm::Instruction *>> threads;
+                            threads.resize(num_threads);
+
+                            const auto min_value = var_value(assignmnt,
+                                                             variables[call_inst->getOperand(0)]);
+                            std::vector<int> min_public_input_idx;
+                            min_public_input_idx.resize(num_threads);
+
+                            for (int j = 0; j < num_threads; j++) {
+                                for (int i = 0; i < fun->arg_size(); ++i) {
+                                    llvm::Argument *arg = fun->getArg(i);
+                                    llvm::Type *arg_type = arg->getType();
+                                    if (arg->getType()->isVectorTy() || arg->getType()->isCurveTy() ||
+                                        (arg->getType()->isFieldTy() &&
+                                         field_arg_num<BlueprintFieldType>(arg_type) > 1)) {
+                                        new_frames[j].vectors[arg] = frame.vectors[call_inst->getOperand(
+                                                i)];
+                                    } else {
+                                        //std::cout << j << ": " << variables[call_inst->getOperand(i)] << " = " << var_value(assignmnt, variables[call_inst->getOperand(i)]).data << std::endl;
+                                        new_frames[j].scalars[arg] = variables[call_inst->getOperand(
+                                                i)];
+                                        //std::cout << j << ": new scalar = "
+                                        //<< new_frames[j].scalars[arg] << "(" << var_value(assignmnt, new_frames[j].scalars[arg]).data << ")\n";
+                                    }
+                                }
+                                assignmnt.public_input(0, public_input_idx) =
+                                        min_value + j * iterations_per_thread;
+                                min_public_input_idx[j] = public_input_idx;
+                                new_frames[j].scalars[fun->getArg(0)] = var(0, public_input_idx++,
+                                                                            false,
+                                                                            var::column_type::public_input);
+                                //std::cout << min_public_input_idx[j] << std::endl;
+                                //std::cout << j << " set min: " << new_frames[j].scalars[fun->getArg(0)] << " = " << var_value(assignmnt, new_frames[j].scalars[fun->getArg(0)]).data << std::endl;
+                                //std::cout << std::flush;
+                                threads[j] = std::async(std::launch::async,
+                                                        [this, &new_frames, &min_public_input_idx, j, iterations_per_thread, &min_value, &fun]() {
+                                                            const llvm::Instruction *next_inst = &fun->begin()->front();
+                                                            for (int i = 0;
+                                                                 i < iterations_per_thread; i++) {
+                                                                next_inst = &fun->begin()->front();
+                                                                assignmnt.public_input(0,
+                                                                                       min_public_input_idx[j]) =
+                                                                        min_value +
+                                                                        j * iterations_per_thread +
+                                                                        i;
+                                                                //std::cout << j << " update min: " << new_frames[j].scalars[fun->getArg(0)] << " = " << var_value(assignmnt, new_frames[j].scalars[fun->getArg(0)]).data << std::endl;
+                                                                while (next_inst != nullptr &&
+                                                                       next_inst->getOpcode() !=
+                                                                       llvm::Instruction::Ret) {
+                                                                    {
+                                                                        std::lock_guard <std::mutex> lock(
+                                                                                mutex);
+                                                                        next_inst = handle_instruction(
+                                                                                next_inst,
+                                                                                &(new_frames[j]));
+                                                                    }
+                                                                    //std::cout << std::flush;
+                                                                }
+                                                            }
+                                                            return next_inst;
+                                                        });
+                            }
+                            for (int j = 0; j < num_threads; j++) {
+                                threads[j].get();
+                            }
+                            //std::cout << "END PAR FOR\n";
+                            return inst->getNextNonDebugInstruction();
+                        } else {
+                            stack_frame<var> new_frame;
+                            auto &new_variables = new_frame.scalars;
+                            for (int i = 0; i < fun->arg_size(); ++i) {
+                                llvm::Argument *arg = fun->getArg(i);
+                                llvm::Type *arg_type = arg->getType();
+                                if (arg->getType()->isVectorTy() || arg->getType()->isCurveTy() ||
+                                    (arg->getType()->isFieldTy() &&
+                                     field_arg_num<BlueprintFieldType>(arg_type) > 1))
+                                    new_frame.vectors[arg] = frame.vectors[call_inst->getOperand(
+                                            i)];
+                                else
+                                    new_variables[arg] = variables[call_inst->getOperand(i)];
+                            }
+
+                            new_frame.caller = call_inst;
+                            call_stack.emplace(std::move(new_frame));
+                            stack_memory.push_frame();
+                            return &fun->begin()->front();
                         }
-                        new_frame.caller = call_inst;
-                        call_stack.emplace(std::move(new_frame));
-                        stack_memory.push_frame();
-                        return &fun->begin()->front();
                     }
                     case llvm::Instruction::ICmp: {
                         auto cmp_inst = llvm::cast<const llvm::ICmpInst>(inst);
@@ -619,7 +701,6 @@ namespace nil {
                         return inst->getNextNonDebugInstruction();
                     }
                     case llvm::Instruction::Select: {
-
                         var condition = variables[inst->getOperand(0)];
                         llvm::Value *true_val = inst->getOperand(1);
                         llvm::Value *false_val = inst->getOperand(2);
@@ -848,7 +929,7 @@ namespace nil {
                             ASSERT(call_stack.size() == 0);
                             finished = true;
 
-                            if(PrintCircuitOutput) {
+                            if(/*PrintCircuitOutput*/true) {
                                 if (inst->getNumOperands() != 0) {
                                     llvm::Value *ret_val = inst->getOperand(0);
                                     if (ret_val->getType()->isPointerTy()) {
