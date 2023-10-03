@@ -60,22 +60,21 @@ namespace nil {
                     std::map<const llvm::Value *, crypto3::zk::snark::plonk_variable<typename BlueprintFieldType::value_type>> &variables,
                     circuit<crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>> &bp,
                     assignment<crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>>
-                        &assignment,
-                    std::uint32_t start_row) {
+                        &assignment) {
 
                 using var = crypto3::zk::snark::plonk_variable<typename BlueprintFieldType::value_type>;
 
                 using component_type = components::subtraction<
                     crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>,
                     BlueprintFieldType, basic_non_native_policy<BlueprintFieldType>>;
-                const auto p = PolicyManager::get_parameters(ManifestReader<component_type, ArithmetizationParams>::get_witness(0));
-                component_type component_instance(p.witness, ManifestReader<component_type, ArithmetizationParams>::get_constants(), ManifestReader<component_type, ArithmetizationParams>::get_public_inputs());
+                const auto p = PolicyManager<BlueprintFieldType, ArithmetizationParams>::get_parameters(assignment, ManifestReader<component_type, ArithmetizationParams>::get_witness(0), ManifestReader<component_type, ArithmetizationParams>::constant_amount);
+                component_type component_instance(p.witness, ManifestReader<component_type, ArithmetizationParams>::get_constants(p.constant_idx), ManifestReader<component_type, ArithmetizationParams>::get_public_inputs());
 
                 var x = variables[operand0];
                 var y = variables[operand1];
 
-                components::generate_circuit(component_instance, bp, assignment, {x, y}, start_row);
-                return components::generate_assignments(component_instance, assignment, {x, y}, start_row);
+                components::generate_circuit(component_instance, bp, assignment, {x, y}, p.start_row);
+                return components::generate_assignments(component_instance, assignment, {x, y}, p.start_row);
             }
 
             template<typename BlueprintFieldType, typename ArithmetizationParams, typename OperatingFieldType>
@@ -87,8 +86,7 @@ namespace nil {
                     std::map<const llvm::Value *, std::vector<crypto3::zk::snark::plonk_variable<typename BlueprintFieldType::value_type>>> &vectors,
                     circuit<crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>> &bp,
                     assignment<crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>>
-                        &assignment,
-                    std::uint32_t start_row) {
+                        &assignment) {
 
                 using var = crypto3::zk::snark::plonk_variable<typename BlueprintFieldType::value_type>;
                 using non_native_policy_type = basic_non_native_policy<BlueprintFieldType>;
@@ -96,8 +94,8 @@ namespace nil {
                 using component_type = components::subtraction<
                     crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>,
                     OperatingFieldType, basic_non_native_policy<BlueprintFieldType>>;
-                const auto p = PolicyManager::get_parameters(ManifestReader<component_type, ArithmetizationParams>::get_witness(0));
-                component_type component_instance(p.witness, ManifestReader<component_type, ArithmetizationParams>::get_constants(), ManifestReader<component_type, ArithmetizationParams>::get_public_inputs());
+                const auto p = PolicyManager<BlueprintFieldType, ArithmetizationParams>::get_parameters(assignment, ManifestReader<component_type, ArithmetizationParams>::get_witness(0), ManifestReader<component_type, ArithmetizationParams>::constant_amount);
+                component_type component_instance(p.witness, ManifestReader<component_type, ArithmetizationParams>::get_constants(p.constant_idx), ManifestReader<component_type, ArithmetizationParams>::get_public_inputs());
 
                 std::vector<var> operand0_vars = vectors[operand0];
                 std::vector<var> operand1_vars = vectors[operand1];
@@ -112,8 +110,8 @@ namespace nil {
                             non_native_policy_type::template field<OperatingFieldType>::ratio,
                             y.begin());
 
-                components::generate_circuit(component_instance, bp, assignment, {x, y}, start_row);
-                return components::generate_assignments(component_instance, assignment, {x, y}, start_row);
+                components::generate_circuit(component_instance, bp, assignment, {x, y}, p.start_row);
+                return components::generate_assignments(component_instance, assignment, {x, y}, p.start_row);
             }
 
         }    // namespace detail
@@ -124,8 +122,7 @@ namespace nil {
             stack_frame<crypto3::zk::snark::plonk_variable<typename BlueprintFieldType::value_type>> &frame,
             circuit<crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>> &bp,
             assignment<crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>>
-                &assignment,
-            std::uint32_t start_row) {
+                &assignment) {
 
             using non_native_policy_type = basic_non_native_policy<BlueprintFieldType>;
 
@@ -145,13 +142,13 @@ namespace nil {
                     if (std::is_same<BlueprintFieldType, operating_field_type>::value) {
                         frame.scalars[inst] = detail::handle_native_field_subtraction_component<BlueprintFieldType,
                                                                                             ArithmetizationParams>(
-                                              operand0, operand1, frame.scalars, bp, assignment, start_row)
+                                              operand0, operand1, frame.scalars, bp, assignment)
                                               .output;
                     } else {
                         // Non-native bls12-381 is undefined yet
                         // variables[inst] = detail::handle_non_native_field_subtraction_component<
                         //                       BlueprintFieldType, ArithmetizationParams, operating_field_type>(
-                        //                       operand0, operand1, frame.vectors, bp, assignment, start_row)
+                        //                       operand0, operand1, frame.vectors, bp, assignment)
                         //                       .output;
                     }
 
@@ -163,13 +160,13 @@ namespace nil {
                     if (std::is_same<BlueprintFieldType, operating_field_type>::value) {
                         frame.scalars[inst] = detail::handle_native_field_subtraction_component<BlueprintFieldType,
                                                                                             ArithmetizationParams>(
-                                              operand0, operand1, frame.scalars, bp, assignment, start_row)
+                                              operand0, operand1, frame.scalars, bp, assignment)
                                               .output;
                     } else {
                         // Non-native pallas is undefined yet
                         // variables[inst] = detail::handle_non_native_field_subtraction_component<
                         //                       BlueprintFieldType, ArithmetizationParams, operating_field_type>(
-                        //                       operand0, operand1, frame.vectors, bp, assignment, start_row)
+                        //                       operand0, operand1, frame.vectors, bp, assignment)
                         //                       .output;
                     }
 
@@ -181,13 +178,13 @@ namespace nil {
                     if (std::is_same<BlueprintFieldType, operating_field_type>::value) {
                         frame.scalars[inst] = detail::handle_native_field_subtraction_component<BlueprintFieldType,
                                                                                             ArithmetizationParams>(
-                                              operand0, operand1, frame.scalars, bp, assignment, start_row)
+                                              operand0, operand1, frame.scalars, bp, assignment)
                                               .output;
                     } else {
                         typename non_native_policy_type::template field<operating_field_type>::non_native_var_type
                             component_result = detail::handle_non_native_field_subtraction_component<
                                                    BlueprintFieldType, ArithmetizationParams, operating_field_type>(
-                                                   operand0, operand1, frame.vectors, bp, assignment, start_row)
+                                                   operand0, operand1, frame.vectors, bp, assignment)
                                                    .output;
 
                         frame.vectors[inst] = std::vector<crypto3::zk::snark::plonk_variable<typename BlueprintFieldType::value_type>>(

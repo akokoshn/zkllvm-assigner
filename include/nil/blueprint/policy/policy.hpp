@@ -28,13 +28,30 @@
 #include <algorithm>
 
 #include <nil/blueprint/component_manifest_utilities.hpp>
+#include <nil/crypto3/zk/snark/arithmetization/plonk/constraint_system.hpp>
 
 namespace nil {
     namespace blueprint {
         namespace detail {
+
+            struct FlexibleParameters {
+                std::vector <std::uint32_t> witness;
+                std::uint32_t start_row;
+                std::uint32_t constant_idx;
+
+                FlexibleParameters(std::uint32_t witness_amount, std::uint32_t first_free_row, std::uint32_t first_witness_col, std::uint32_t first_constant_col)
+                    : start_row(first_free_row) {
+                    witness.resize(witness_amount);
+                    std::iota(witness.begin(), witness.end(), first_witness_col); // first_witness_col, first_witness_col + 1, ...
+                    constant_idx = first_constant_col;
+                }
+            };
+
+            template<typename BlueprintFieldType, typename ArithmetizationParams>
             struct Policy {
-                virtual FlexibleParameters get_parameters(const std::vector<std::pair<std::uint32_t,
-                        std::uint32_t>>& witness_variants) const = 0;
+                virtual FlexibleParameters get_parameters(
+                        const assignment<crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>>& assignment,
+                        const std::vector<std::pair<std::uint32_t, std::uint32_t>>& witness_variants, const std::uint32_t constant_amount) const = 0;
             };
         }    // namespace detail
     }    // namespace blueprint

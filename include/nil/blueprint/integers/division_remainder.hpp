@@ -53,20 +53,19 @@ namespace nil {
             typename std::map<const llvm::Value *, crypto3::zk::snark::plonk_variable<typename BlueprintFieldType::value_type>> &variables,
             circuit<crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>> &bp,
             assignment<crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>>
-                &assignment,
-            std::uint32_t start_row) {
+                &assignment) {
 
             using var = crypto3::zk::snark::plonk_variable<typename BlueprintFieldType::value_type>;
             using component_type = components::division_remainder<
                 crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>>;
-            const auto p = PolicyManager::get_parameters(ManifestReader<component_type, ArithmetizationParams>::get_witness(0, Bitness, true));
-            component_type component_instance(p.witness, ManifestReader<component_type, ArithmetizationParams>::get_constants(), ManifestReader<component_type, ArithmetizationParams>::get_public_inputs(), Bitness, true);
+            const auto p = PolicyManager<BlueprintFieldType, ArithmetizationParams>::get_parameters(assignment, ManifestReader<component_type, ArithmetizationParams>::get_witness(0, Bitness, true), ManifestReader<component_type, ArithmetizationParams>::constant_amount);
+            component_type component_instance(p.witness, ManifestReader<component_type, ArithmetizationParams>::get_constants(p.constant_idx), ManifestReader<component_type, ArithmetizationParams>::get_public_inputs(), Bitness, true);
 
             var x = variables[operand0];
             var y = variables[operand1];
 
-            components::generate_circuit(component_instance, bp, assignment, {x, y}, start_row);
-            return components::generate_assignments(component_instance, assignment, {x, y}, start_row);
+            components::generate_circuit(component_instance, bp, assignment, {x, y}, p.start_row);
+            return components::generate_assignments(component_instance, assignment, {x, y}, p.start_row);
 
             }
         }    // namespace detail
@@ -78,7 +77,6 @@ namespace nil {
             circuit<crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>> &bp,
             assignment<crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>>
                 &assignment,
-            std::uint32_t start_row,
             bool is_division) {
 
             using non_native_policy_type = basic_non_native_policy<BlueprintFieldType>;
@@ -92,11 +90,11 @@ namespace nil {
 
             if (is_division) {
                 frame.scalars[inst] = detail::handle_native_field_division_remainder_component<BlueprintFieldType, ArithmetizationParams>(
-                                bitness, operand0, operand1, frame.scalars, bp, assignment, start_row).quotient;
+                                bitness, operand0, operand1, frame.scalars, bp, assignment).quotient;
             }
             else {
                 frame.scalars[inst] = detail::handle_native_field_division_remainder_component<BlueprintFieldType, ArithmetizationParams>(
-                                bitness, operand0, operand1, frame.scalars, bp, assignment, start_row).remainder;
+                                bitness, operand0, operand1, frame.scalars, bp, assignment).remainder;
             }
 
         }

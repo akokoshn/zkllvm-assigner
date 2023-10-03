@@ -60,16 +60,15 @@ namespace nil {
                     typename std::map<const llvm::Value *, std::vector<crypto3::zk::snark::plonk_variable<typename BlueprintFieldType::value_type>>> &vectors,
                     circuit<crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>> &bp,
                     assignment<crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>>
-                        &assignment,
-                    std::uint32_t start_row) {
+                        &assignment) {
 
                 using var = crypto3::zk::snark::plonk_variable<typename BlueprintFieldType::value_type>;
 
                 using ArithmetizationType = crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>;
                 using component_type = components::curve_element_variable_base_scalar_mul<
                     ArithmetizationType,CurveType>;
-                const auto p = PolicyManager::get_parameters(ManifestReader<component_type, ArithmetizationParams>::get_witness(0));
-                component_type component_instance(p.witness, ManifestReader<component_type, ArithmetizationParams>::get_constants(), ManifestReader<component_type, ArithmetizationParams>::get_public_inputs());
+                const auto p = PolicyManager<BlueprintFieldType, ArithmetizationParams>::get_parameters(assignment, ManifestReader<component_type, ArithmetizationParams>::get_witness(0), ManifestReader<component_type, ArithmetizationParams>::constant_amount);
+                component_type component_instance(p.witness, ManifestReader<component_type, ArithmetizationParams>::get_constants(p.constant_idx), ManifestReader<component_type, ArithmetizationParams>::get_public_inputs());
 
                 struct var_ec_point {
                     var X;
@@ -81,8 +80,8 @@ namespace nil {
 
                 typename component_type::input_type addition_input = {{T.X, T.Y}, b[0], b[1]};
 
-                components::generate_circuit(component_instance, bp, assignment, addition_input, start_row);
-                return components::generate_assignments(component_instance, assignment, addition_input, start_row);
+                components::generate_circuit(component_instance, bp, assignment, addition_input, p.start_row);
+                return components::generate_assignments(component_instance, assignment, addition_input, p.start_row);
             }
 
             template<typename BlueprintFieldType, typename ArithmetizationParams, typename CurveType, typename Ed25519Type>
@@ -98,16 +97,15 @@ namespace nil {
                     typename std::map<const llvm::Value *, crypto3::zk::snark::plonk_variable<typename BlueprintFieldType::value_type>> &variables,
                     circuit<crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>> &bp,
                     assignment<crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>>
-                        &assignment,
-                    std::uint32_t start_row) {
+                        &assignment) {
 
                 using var = crypto3::zk::snark::plonk_variable<typename BlueprintFieldType::value_type>;
 
                 using ArithmetizationType = crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>;
                 using component_type = components::variable_base_multiplication<ArithmetizationType, CurveType,
                             Ed25519Type, basic_non_native_policy<BlueprintFieldType>>;
-                const auto p = PolicyManager::get_parameters(ManifestReader<component_type, ArithmetizationParams>::get_witness(0, 253));
-                component_type component_instance(p.witness, ManifestReader<component_type, ArithmetizationParams>::get_constants(), ManifestReader<component_type, ArithmetizationParams>::get_public_inputs(), 253, nil::blueprint::components::detail::bit_shift_mode::RIGHT);
+                const auto p = PolicyManager<BlueprintFieldType, ArithmetizationParams>::get_parameters(assignment, ManifestReader<component_type, ArithmetizationParams>::get_witness(0, 253), ManifestReader<component_type, ArithmetizationParams>::constant_amount);
+                component_type component_instance(p.witness, ManifestReader<component_type, ArithmetizationParams>::get_constants(p.constant_idx), ManifestReader<component_type, ArithmetizationParams>::get_public_inputs(), 253, nil::blueprint::components::bit_shift_mode::RIGHT);
 
                 using non_native_policy_type = basic_non_native_policy<BlueprintFieldType>;
 
@@ -131,8 +129,8 @@ namespace nil {
 
                 typename component_type::input_type addition_input = {{T.X, T.Y}, b};
 
-                components::generate_circuit(component_instance, bp, assignment, addition_input, start_row);
-                return components::generate_assignments(component_instance, assignment, addition_input, start_row);
+                components::generate_circuit(component_instance, bp, assignment, addition_input, p.start_row);
+                return components::generate_assignments(component_instance, assignment, addition_input, p.start_row);
             }
 
         }    // namespace detail
@@ -143,8 +141,7 @@ namespace nil {
             stack_frame<crypto3::zk::snark::plonk_variable<typename BlueprintFieldType::value_type>> &frame,
             circuit<crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>> &bp,
             assignment<crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>>
-                &assignment,
-            std::uint32_t start_row) {
+                &assignment) {
 
             using non_native_policy_type = basic_non_native_policy<BlueprintFieldType>;
 
@@ -192,7 +189,7 @@ namespace nil {
                                 ArithmetizationType, operating_curve_type>;
                         typename component_type::result_type res =
                             detail::handle_native_curve_non_native_scalar_multiplication_component<BlueprintFieldType, ArithmetizationParams, operating_curve_type>(
-                                operand_curve, operand_field, frame.vectors, bp, assignment, start_row);
+                                operand_curve, operand_field, frame.vectors, bp, assignment);
                         std::vector<crypto3::zk::snark::plonk_variable<typename BlueprintFieldType::value_type>> res_vector = {res.X, res.Y};
                         frame.vectors[inst] = res_vector;
                     } else {
@@ -226,8 +223,7 @@ namespace nil {
                                 frame.vectors,
                                 frame.scalars,
                                 bp,
-                                assignment,
-                                start_row);
+                                assignment);
 
                         std::vector<crypto3::zk::snark::plonk_variable<typename BlueprintFieldType::value_type>> res_vector =
                         {

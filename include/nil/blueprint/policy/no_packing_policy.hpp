@@ -22,8 +22,8 @@
 // SOFTWARE.
 //---------------------------------------------------------------------------//
 
-#ifndef CRYPTO3_ASSIGNER_DEFAULT_POLICY_HPP
-#define CRYPTO3_ASSIGNER_DEFAULT_POLICY_HPP
+#ifndef CRYPTO3_ASSIGNER_NO_PACKING_POLICY_HPP
+#define CRYPTO3_ASSIGNER_NO_PACKING_POLICY_HPP
 
 #include <algorithm>
 
@@ -33,7 +33,7 @@ namespace nil {
     namespace blueprint {
         namespace detail {
             template<typename BlueprintFieldType, typename ArithmetizationParams>
-            struct DefaultPolicy: public Policy<BlueprintFieldType, ArithmetizationParams> {
+            struct NoPackingPolicy: public Policy<BlueprintFieldType, ArithmetizationParams> {
                 FlexibleParameters get_parameters(
                         const assignment<crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>>& assignment,
                         const std::vector<std::pair<std::uint32_t, std::uint32_t>>& witness_variants, const std::uint32_t constant_amount) const override {
@@ -41,14 +41,11 @@ namespace nil {
                                                                   [](const std::pair<std::uint32_t, std::uint32_t>& a,
                                                                            const std::pair<std::uint32_t, std::uint32_t>& b) {
                                                                                 return a.second < b.second;});
-                    std::uint32_t witness_idx = 0;
-                    std::uint32_t constant_idx = 0;
-                    const auto first_free_row = assignment.get_first_free_row(witness_amount.first, constant_amount, witness_idx, constant_idx);
-                    return FlexibleParameters(witness_amount.first, first_free_row, witness_idx, constant_idx);
+                    return FlexibleParameters(witness_amount.first, assignment.allocated_rows(), 0, 0);
                 }
             };
         }    // namespace detail
     }    // namespace blueprint
 }    // namespace nil
 
-#endif    // CRYPTO3_ASSIGNER_DEFAULT_POLICY_HPP
+#endif    // CRYPTO3_ASSIGNER_NO_PACKING_POLICY_HPP

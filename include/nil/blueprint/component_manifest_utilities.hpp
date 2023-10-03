@@ -35,15 +35,6 @@ namespace nil {
     namespace blueprint {
         namespace detail {
 
-            struct FlexibleParameters {
-                std::vector <std::uint32_t> witness;
-
-                FlexibleParameters(std::uint32_t witness_amount) {
-                    witness.resize(witness_amount);
-                    std::iota(witness.begin(), witness.end(), 0); // fill 0, 1, ...
-                }
-            };
-
             template<typename ArithmetizationParams>
             struct CompilerRestrictions {
                 inline static compiler_manifest common_restriction_manifest = compiler_manifest(ArithmetizationParams::witness_columns,
@@ -55,6 +46,7 @@ namespace nil {
             struct ManifestReader {
                 inline static typename ComponentType::manifest_type manifest =
                         CompilerRestrictions<ArithmetizationParams>::common_restriction_manifest.intersect(ComponentType::get_manifest());
+                inline static std::uint32_t constant_amount = (manifest.constant_required == manifest_constant_type::type::REQUIRED) ? 1 : 0;
 
                 template<typename... Args>
                 static std::vector <std::pair<std::uint32_t, std::uint32_t>>
@@ -74,9 +66,9 @@ namespace nil {
                 }
 
                 static typename ComponentType::component_type::constant_container_type
-                get_constants() {
+                get_constants(const std::uint32_t start_idx) {
                     typename ComponentType::component_type::constant_container_type constants;
-                    std::iota(constants.begin(), constants.end(), 0); // fill 0, 1, ...
+                    std::iota(constants.begin(), constants.end(), start_idx); // fill start_idx, start_idx + 1, ...
                     return constants;
                 }
 

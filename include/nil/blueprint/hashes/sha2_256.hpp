@@ -52,8 +52,7 @@ namespace nil {
             stack_frame<crypto3::zk::snark::plonk_variable<typename BlueprintFieldType::value_type>> &frame,
             circuit<crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>> &bp,
             assignment<crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>>
-                &assignmnt,
-            std::uint32_t start_row) {
+                &assignmnt) {
 
             using var = crypto3::zk::snark::plonk_variable<typename BlueprintFieldType::value_type>;
             using component_type = components::sha256<
@@ -68,15 +67,17 @@ namespace nil {
 
             typename component_type::input_type instance_input = {input_block_vars};
 
-            const auto p = detail::PolicyManager::get_parameters(detail::ManifestReader<component_type, ArithmetizationParams>::get_witness(0));
+            const auto p = detail::PolicyManager<BlueprintFieldType, ArithmetizationParams>::get_parameters(
+                    assignmnt, detail::ManifestReader<component_type, ArithmetizationParams>::get_witness(0),
+                    detail::ManifestReader<component_type, ArithmetizationParams>::constant_amount);
 
-            component_type component_instance(p.witness, detail::ManifestReader<component_type, ArithmetizationParams>::get_constants(),
+            component_type component_instance(p.witness, detail::ManifestReader<component_type, ArithmetizationParams>::get_constants(p.constant_idx),
                                               detail::ManifestReader<component_type, ArithmetizationParams>::get_public_inputs());
 
-            components::generate_circuit(component_instance, bp, assignmnt, instance_input, start_row);
+            components::generate_circuit(component_instance, bp, assignmnt, instance_input, p.start_row);
 
             typename component_type::result_type component_result =
-                components::generate_assignments(component_instance, assignmnt, instance_input, start_row);
+                components::generate_assignments(component_instance, assignmnt, instance_input, p.start_row);
 
             std::vector<var> output(component_result.output.begin(), component_result.output.end());
             frame.vectors[inst] = output;

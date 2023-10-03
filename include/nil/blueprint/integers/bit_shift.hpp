@@ -53,30 +53,30 @@ namespace nil {
             circuit<crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>> &bp,
             assignment<crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>>
                 &assignment,
-            std::uint32_t start_row,
-            typename nil::blueprint::components::detail::bit_shift_mode left_or_right) {
+            typename nil::blueprint::components::bit_shift_mode left_or_right) {
 
-            using var = crypto3::zk::snark::plonk_variable<typename BlueprintFieldType::value_type>;
+                using var = crypto3::zk::snark::plonk_variable<typename BlueprintFieldType::value_type>;
 
-            var x = variables[operand0];
-            var shift_var = variables[operand1];
+                var x = variables[operand0];
+                var shift_var = variables[operand1];
 
-            //TODO: Shift should be input of the component, not as done there
-            std::size_t Shift = std::size_t(typename BlueprintFieldType::integral_type(var_value(assignment, shift_var).data));
+                //TODO: Shift should be input of the component, not as done there
+                std::size_t Shift = std::size_t(typename BlueprintFieldType::integral_type(var_value(assignment, shift_var).data));
 
-            using component_type = nil::blueprint::components::bit_shift_constant<
-                crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>>;
+                using component_type = nil::blueprint::components::bit_shift_constant<
+                    crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>>;
 
-            using nil::blueprint::components::detail::bit_shift_mode;
+                using nil::blueprint::components::bit_shift_mode;
 
-            const auto p = PolicyManager::get_parameters(ManifestReader<component_type, ArithmetizationParams>::get_witness(0, Bitness, Shift, left_or_right));
+                const auto p = PolicyManager<BlueprintFieldType, ArithmetizationParams>::get_parameters(
+                        assignment, ManifestReader<component_type, ArithmetizationParams>::get_witness(0, Bitness, Shift, left_or_right),
+                        ManifestReader<component_type, ArithmetizationParams>::constant_amount);
 
-            component_type component_instance(p.witness, ManifestReader<component_type, ArithmetizationParams>::get_constants(), ManifestReader<component_type, ArithmetizationParams>::get_public_inputs(), Bitness, Shift, left_or_right);
+                component_type component_instance(p.witness, ManifestReader<component_type, ArithmetizationParams>::get_constants(p.constant_idx),
+                                                  ManifestReader<component_type, ArithmetizationParams>::get_public_inputs(), Bitness, Shift, left_or_right);
 
-
-            components::generate_circuit(component_instance, bp, assignment, {x}, start_row);
-            return components::generate_assignments(component_instance, assignment, {x}, start_row);
-
+                components::generate_circuit(component_instance, bp, assignment, {x}, p.start_row);
+                return components::generate_assignments(component_instance, assignment, {x}, p.start_row);
             }
         }    // namespace detail
 
@@ -87,8 +87,7 @@ namespace nil {
             circuit<crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>> &bp,
             assignment<crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>>
                 &assignment,
-            std::uint32_t start_row,
-            typename nil::blueprint::components::detail::bit_shift_mode left_or_right) {
+            typename nil::blueprint::components::bit_shift_mode left_or_right) {
 
             llvm::Value *operand0 = inst->getOperand(0);
             llvm::Value *operand1 = inst->getOperand(1);
@@ -98,7 +97,7 @@ namespace nil {
             std::size_t bitness = inst->getOperand(0)->getType()->getPrimitiveSizeInBits();
 
             frame.scalars[inst] = detail::handle_native_field_bit_shift_constant_component<BlueprintFieldType, ArithmetizationParams>(
-                                bitness, operand0, operand1, frame.scalars, bp, assignment, start_row, left_or_right).output;
+                                bitness, operand0, operand1, frame.scalars, bp, assignment, left_or_right).output;
 
         }
 

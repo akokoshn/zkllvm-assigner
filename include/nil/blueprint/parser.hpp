@@ -91,7 +91,7 @@ namespace nil {
                 if (detailed_logging) {
                     log.set_level(logger::level::DEBUG);
                 }
-                detail::PolicyManager::set_policy(kind);
+                detail::PolicyManager<BlueprintFieldType, ArithmetizationParams>::set_policy(kind);
             }
 
             using ArithmetizationType =
@@ -368,19 +368,19 @@ namespace nil {
                         return true;
                     }
                     case llvm::Intrinsic::assigner_sha2_256: {
-                        handle_sha2_256_component<BlueprintFieldType, ArithmetizationParams>(inst, frame, bp, assignmnt, start_row);
+                        handle_sha2_256_component<BlueprintFieldType, ArithmetizationParams>(inst, frame, bp, assignmnt);
                         return true;
                     }
                     case llvm::Intrinsic::assigner_sha2_512: {
-                        handle_sha2_512_component<BlueprintFieldType, ArithmetizationParams>(inst, frame, bp, assignmnt, start_row);
+                        handle_sha2_512_component<BlueprintFieldType, ArithmetizationParams>(inst, frame, bp, assignmnt);
                         return true;
                     }
                     case llvm::Intrinsic::assigner_bit_decomposition64: {
-                        handle_integer_bit_decomposition_component<BlueprintFieldType, ArithmetizationParams>(inst, frame, bp, assignmnt, start_row);
+                        handle_integer_bit_decomposition_component<BlueprintFieldType, ArithmetizationParams>(inst, frame, bp, assignmnt);
                         return true;
                     }
                     case llvm::Intrinsic::assigner_bit_composition128: {
-                        handle_integer_bit_composition128_component<BlueprintFieldType, ArithmetizationParams>(inst, frame, bp, assignmnt, start_row);
+                        handle_integer_bit_composition128_component<BlueprintFieldType, ArithmetizationParams>(inst, frame, bp, assignmnt);
                         return true;
                     }
                     case llvm::Intrinsic::memcpy: {
@@ -577,17 +577,17 @@ namespace nil {
 
                         if (inst->getOperand(0)->getType()->isIntegerTy()) {
                             handle_integer_addition_component<BlueprintFieldType, ArithmetizationParams>(
-                                        inst, frame, bp, assignmnt, start_row);
+                                        inst, frame, bp, assignmnt);
                             return inst->getNextNonDebugInstruction();
                         }
 
                         if (inst->getOperand(0)->getType()->isFieldTy() && inst->getOperand(1)->getType()->isFieldTy()) {
                             handle_field_addition_component<BlueprintFieldType, ArithmetizationParams>(
-                                        inst, frame, bp, assignmnt, start_row);
+                                        inst, frame, bp, assignmnt);
                             return inst->getNextNonDebugInstruction();
                         } else if (inst->getOperand(0)->getType()->isCurveTy() && inst->getOperand(1)->getType()->isCurveTy()) {
                             handle_curve_addition_component<BlueprintFieldType, ArithmetizationParams>(
-                                        inst, frame, bp, assignmnt, start_row);
+                                        inst, frame, bp, assignmnt);
                             return inst->getNextNonDebugInstruction();
                         } else {
                             UNREACHABLE("curve + scalar is undefined");
@@ -598,17 +598,17 @@ namespace nil {
                     case llvm::Instruction::Sub: {
                         if (inst->getOperand(0)->getType()->isIntegerTy()) {
                             handle_integer_subtraction_component<BlueprintFieldType, ArithmetizationParams>(
-                                inst, frame, bp, assignmnt, start_row);
+                                inst, frame, bp, assignmnt);
                             return inst->getNextNonDebugInstruction();
                         }
 
                         if (inst->getOperand(0)->getType()->isFieldTy() && inst->getOperand(1)->getType()->isFieldTy()) {
                             handle_field_subtraction_component<BlueprintFieldType, ArithmetizationParams>(
-                                inst, frame, bp, assignmnt, start_row);
+                                inst, frame, bp, assignmnt);
                             return inst->getNextNonDebugInstruction();
                         } else if (inst->getOperand(0)->getType()->isCurveTy() && inst->getOperand(1)->getType()->isCurveTy()) {
                             handle_curve_subtraction_component<BlueprintFieldType, ArithmetizationParams>(
-                                inst, frame, bp, assignmnt, start_row);
+                                inst, frame, bp, assignmnt);
                             return inst->getNextNonDebugInstruction();
                         } else {
                             UNREACHABLE("curve - scalar is undefined");
@@ -620,13 +620,13 @@ namespace nil {
 
                         if (inst->getOperand(0)->getType()->isIntegerTy()) {
                             handle_integer_multiplication_component<BlueprintFieldType, ArithmetizationParams>(
-                                inst, frame, bp, assignmnt, start_row);
+                                inst, frame, bp, assignmnt);
                             return inst->getNextNonDebugInstruction();
                         }
 
                         if (inst->getOperand(0)->getType()->isFieldTy() && inst->getOperand(1)->getType()->isFieldTy()) {
                             handle_field_multiplication_component<BlueprintFieldType, ArithmetizationParams>(
-                                inst, frame, bp, assignmnt, start_row);
+                                inst, frame, bp, assignmnt);
                             return inst->getNextNonDebugInstruction();
                         }
 
@@ -640,7 +640,7 @@ namespace nil {
                             (inst->getOperand(1)->getType()->isCurveTy() && inst->getOperand(0)->getType()->isFieldTy())) {
 
                             handle_curve_multiplication_component<BlueprintFieldType, ArithmetizationParams>(
-                                inst, frame, bp, assignmnt, start_row);
+                                inst, frame, bp, assignmnt);
                             return inst->getNextNonDebugInstruction();
                         } else {
                             UNREACHABLE("cmul opcode is defined only for curveTy * fieldTy");
@@ -649,12 +649,12 @@ namespace nil {
                     case llvm::Instruction::UDiv: {
                         if (inst->getOperand(0)->getType()->isIntegerTy() && inst->getOperand(1)->getType()->isIntegerTy()) {
                             handle_integer_division_remainder_component<BlueprintFieldType, ArithmetizationParams>(
-                                inst, frame, bp, assignmnt, start_row, true);
+                                inst, frame, bp, assignmnt, true);
                             return inst->getNextNonDebugInstruction();
                         }
                         else if (inst->getOperand(0)->getType()->isFieldTy() && inst->getOperand(1)->getType()->isFieldTy()) {
                             handle_field_division_component<BlueprintFieldType, ArithmetizationParams>(
-                                inst, frame, bp, assignmnt, start_row);
+                                inst, frame, bp, assignmnt);
                             return inst->getNextNonDebugInstruction();
                         }
                         else {
@@ -664,7 +664,7 @@ namespace nil {
                     case llvm::Instruction::URem: {
                         if (inst->getOperand(0)->getType()->isIntegerTy() && inst->getOperand(1)->getType()->isIntegerTy()) {
                             handle_integer_division_remainder_component<BlueprintFieldType, ArithmetizationParams>(
-                                inst, frame, bp, assignmnt, start_row, false);
+                                inst, frame, bp, assignmnt, false);
                             return inst->getNextNonDebugInstruction();
                         } else {
                             UNREACHABLE("URem opcode is defined only for integerTy");
@@ -673,8 +673,8 @@ namespace nil {
                     case llvm::Instruction::Shl: {
                         if (inst->getOperand(0)->getType()->isIntegerTy() && inst->getOperand(1)->getType()->isIntegerTy()) {
                             handle_integer_bit_shift_constant_component<BlueprintFieldType, ArithmetizationParams>(
-                                inst, frame, bp, assignmnt, start_row,
-                                        nil::blueprint::components::detail::bit_shift_mode::LEFT);
+                                inst, frame, bp, assignmnt,
+                                        nil::blueprint::components::bit_shift_mode::LEFT);
                             return inst->getNextNonDebugInstruction();
                         } else {
                             UNREACHABLE("shl opcode is defined only for integerTy");
@@ -683,8 +683,8 @@ namespace nil {
                     case llvm::Instruction::LShr: {
                         if (inst->getOperand(0)->getType()->isIntegerTy() && inst->getOperand(1)->getType()->isIntegerTy()) {
                             handle_integer_bit_shift_constant_component<BlueprintFieldType, ArithmetizationParams>(
-                                inst, frame, bp, assignmnt, start_row,
-                                        nil::blueprint::components::detail::bit_shift_mode::RIGHT);
+                                inst, frame, bp, assignmnt,
+                                        nil::blueprint::components::bit_shift_mode::RIGHT);
                             return inst->getNextNonDebugInstruction();
                         } else {
                             UNREACHABLE("LShr opcode is defined only for integerTy");
@@ -694,13 +694,13 @@ namespace nil {
 
                         if (inst->getOperand(0)->getType()->isIntegerTy()) {
                             handle_integer_division_component<BlueprintFieldType, ArithmetizationParams>(
-                                inst, frame, bp, assignmnt, start_row);
+                                inst, frame, bp, assignmnt);
                             return inst->getNextNonDebugInstruction();
                         }
 
                         if (inst->getOperand(0)->getType()->isFieldTy() && inst->getOperand(1)->getType()->isFieldTy()) {
                             handle_field_division_component<BlueprintFieldType, ArithmetizationParams>(
-                                inst, frame, bp, assignmnt, start_row);
+                                inst, frame, bp, assignmnt);
                             return inst->getNextNonDebugInstruction();
                         }
 

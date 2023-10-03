@@ -47,8 +47,7 @@ namespace nil {
             stack_frame<crypto3::zk::snark::plonk_variable<typename BlueprintFieldType::value_type>> &frame,
             circuit<crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>> &bp,
             assignment<crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>>
-                &assignment,
-            std::uint32_t start_row) {
+                &assignment) {
 
             using non_native_policy_type = basic_non_native_policy<BlueprintFieldType>;
 
@@ -56,7 +55,7 @@ namespace nil {
             llvm::Value *operand1 = inst->getOperand(1);
 
             frame.scalars[inst] = detail::handle_native_field_addition_component<BlueprintFieldType, ArithmetizationParams>(
-                                operand0, operand1, frame.scalars, bp, assignment, start_row)
+                                operand0, operand1, frame.scalars, bp, assignment)
                                 .output;
         }
 

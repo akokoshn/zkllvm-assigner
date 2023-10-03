@@ -29,29 +29,43 @@
 #include <map>
 
 #include <nil/blueprint/policy/default_policy.hpp>
+#include <nil/blueprint/policy/min_rows_policy.hpp>
+#include <nil/blueprint/policy/no_packing_policy.hpp>
 
 namespace nil {
     namespace blueprint {
         namespace detail {
 
             enum class policy_kind {
-                DEFAULT
+                DEFAULT,
+                MIN_ROWS,
+                NO_PACKING
             };
 
+            template<typename BlueprintFieldType, typename ArithmetizationParams>
             struct PolicyManager {
-                static FlexibleParameters get_parameters(const std::vector <std::pair<std::uint32_t,
-                        std::uint32_t>> &witness_variants) {
+                static FlexibleParameters get_parameters(
+                        const assignment<crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>>& assignment,
+                        const std::vector <std::pair<std::uint32_t, std::uint32_t>> &witness_variants, const std::uint32_t constant_amount) {
                     if (!policy) {
-                        policy.reset(new DefaultPolicy());
+                        policy.reset(new DefaultPolicy<BlueprintFieldType, ArithmetizationParams>());
                     }
-                    return policy->get_parameters(witness_variants);
+                    return policy->get_parameters(assignment, witness_variants, constant_amount);
                 }
 
                 static void set_policy(policy_kind kind) {
                     switch (kind) {
+                        case policy_kind::MIN_ROWS: {
+                            policy.reset(new MinRowsPolicy<BlueprintFieldType, ArithmetizationParams>());
+                            return;
+                        }
+                        case policy_kind::NO_PACKING: {
+                            policy.reset(new NoPackingPolicy<BlueprintFieldType, ArithmetizationParams>());
+                            return;
+                        }
                         case policy_kind::DEFAULT:
                         default: {
-                            policy.reset(new DefaultPolicy());
+                            policy.reset(new DefaultPolicy<BlueprintFieldType, ArithmetizationParams>());
                         }
                     }
                 }
@@ -63,10 +77,12 @@ namespace nil {
                     }
                 }
             private:
-                inline static std::shared_ptr <Policy> policy = nullptr;
+                inline static std::shared_ptr <Policy<BlueprintFieldType, ArithmetizationParams>> policy = nullptr;
 
                 inline static const std::map<std::string, policy_kind> policy_kind_map = {
-                        {"default", policy_kind::DEFAULT}
+                        {"default", policy_kind::DEFAULT},
+                        {"min_rows", policy_kind::MIN_ROWS},
+                        {"no_packing", policy_kind::NO_PACKING}
                 };
             };
         }    // namespace detail

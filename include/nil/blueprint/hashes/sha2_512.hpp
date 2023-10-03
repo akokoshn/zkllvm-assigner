@@ -53,8 +53,7 @@ namespace nil {
             stack_frame<crypto3::zk::snark::plonk_variable<typename BlueprintFieldType::value_type>> &frame,
             circuit<crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>> &bp,
             assignment<crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>>
-                &assignmnt,
-            std::uint32_t start_row) {
+                &assignmnt) {
 
             using var = crypto3::zk::snark::plonk_variable<typename BlueprintFieldType::value_type>;
             using sha2_512_component_type = components::sha512<
@@ -78,34 +77,36 @@ namespace nil {
 
             typename sha2_512_component_type::input_type sha2_512_instance_input = {R, A, {{input_vars[16], input_vars[17],
                 input_vars[18], input_vars[19]}}};
-            const auto p_sha2_512 = detail::PolicyManager::get_parameters(detail::ManifestReader<sha2_512_component_type, ArithmetizationParams>::get_witness(0));
+            const auto p_sha2_512 = detail::PolicyManager<BlueprintFieldType, ArithmetizationParams>::get_parameters(
+                    assignmnt, detail::ManifestReader<sha2_512_component_type, ArithmetizationParams>::get_witness(0),
+                    detail::ManifestReader<sha2_512_component_type, ArithmetizationParams>::constant_amount);
             sha2_512_component_type sha2_512_component_instance(p_sha2_512.witness,
-                                                                detail::ManifestReader<sha2_512_component_type, ArithmetizationParams>::get_constants(),
+                                                                detail::ManifestReader<sha2_512_component_type, ArithmetizationParams>::get_constants(p_sha2_512.constant_idx),
                                                                 detail::ManifestReader<sha2_512_component_type, ArithmetizationParams>::get_public_inputs());
 
-            components::generate_circuit(sha2_512_component_instance, bp, assignmnt, sha2_512_instance_input, start_row);
+            components::generate_circuit(sha2_512_component_instance, bp, assignmnt, sha2_512_instance_input, p_sha2_512.start_row);
 
             typename sha2_512_component_type::result_type sha2_512_component_result =
-                components::generate_assignments(sha2_512_component_instance, assignmnt, sha2_512_instance_input, start_row);
+                components::generate_assignments(sha2_512_component_instance, assignmnt, sha2_512_instance_input, p_sha2_512.start_row);
 
             using reduction_component_type = components::reduction<
                 crypto3::zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>, BlueprintFieldType,
                 basic_non_native_policy<BlueprintFieldType>>;
 
-            const auto p = detail::PolicyManager::get_parameters(detail::ManifestReader<reduction_component_type, ArithmetizationParams>::get_witness(0));
+            const auto p = detail::PolicyManager<BlueprintFieldType, ArithmetizationParams>::get_parameters(
+                    assignmnt, detail::ManifestReader<reduction_component_type, ArithmetizationParams>::get_witness(0),
+                    detail::ManifestReader<reduction_component_type, ArithmetizationParams>::constant_amount);
 
             reduction_component_type reduction_component_instance(p.witness,
-                                                                  detail::ManifestReader<reduction_component_type, ArithmetizationParams>::get_constants(),
+                                                                  detail::ManifestReader<reduction_component_type, ArithmetizationParams>::get_constants(p.constant_idx),
                                                                   detail::ManifestReader<reduction_component_type, ArithmetizationParams>::get_public_inputs());
-
-            start_row = assignmnt.allocated_rows();
 
             typename reduction_component_type::input_type reduction_instance_input = {sha2_512_component_result.output_state};
 
-            components::generate_circuit(reduction_component_instance, bp, assignmnt, reduction_instance_input, start_row);
+            components::generate_circuit(reduction_component_instance, bp, assignmnt, reduction_instance_input, p.start_row);
 
             typename reduction_component_type::result_type reduction_component_result =
-                components::generate_assignments(reduction_component_instance, assignmnt, reduction_instance_input, start_row);
+                components::generate_assignments(reduction_component_instance, assignmnt, reduction_instance_input, p.start_row);
 
             frame.scalars[inst] = reduction_component_result.output;
         }
