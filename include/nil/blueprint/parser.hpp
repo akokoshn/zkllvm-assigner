@@ -1366,10 +1366,12 @@ namespace nil {
 
             template<typename InputType>
             var put_into_assignment(InputType input, bool next_prover) {
-                assignments[currProverIdx].constant(1, constant_idx) = input;
                 if (next_prover) {
-                    return save_shared_var(assignments[currProverIdx], var(1, constant_idx++, false, var::column_type::constant));
+                    const auto shared_idx = assignments[currProverIdx].shared_column_size(0);
+                    assignments[currProverIdx].shared(0, shared_idx) = input;
+                    return var(1, shared_idx, false, var::column_type::public_input);
                 } else {
+                    assignments[currProverIdx].constant(1, constant_idx) = input;
                     return var(1, constant_idx++, false, var::column_type::constant);
                 }
             }
